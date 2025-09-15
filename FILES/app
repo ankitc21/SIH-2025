@@ -1,0 +1,51 @@
+import streamlit as st
+import pickle
+import pandas as pd
+
+# ----------------------------
+# Load model, scaler, encoders
+# ----------------------------
+with open("xgb_best_model.pkl", "rb") as f:
+    model = pickle.load(f)
+
+with open("scaler.pkl", "rb") as f:
+    scaler = pickle.load(f)
+
+with open("label_encoders.pkl", "rb") as f:
+    encoders = pickle.load(f)
+
+# ----------------------------
+# Streamlit App UI
+# ----------------------------
+st.set_page_config(page_title="Crop Production Predictor", page_icon="🌾", layout="centered")
+
+st.title("🌾 Crop Production Prediction App")
+st.markdown("Enter details about state, district, crop, season, year, and area to predict **Production**.")
+
+# Input fields
+state = st.selectbox("Select State", encoders["State_Name"].classes_)
+district = st.selectbox("Select District", encoders["District_Name"].classes_)
+season = st.selectbox("Select Season", encoders["Season"].classes_)
+crop = st.selectbox("Select Crop", encoders["Crop"].classes_)
+year = st.number_input("Crop Year", min_value=2000, max_value=2030, step=1, value=2012)
+area = st.number_input("Area (in hectares)", min_value=0.0, step=10.0, value=500.0)
+
+# Prediction button
+if st.button("Predict Production"):
+    # Encode categorical values
+    encoded_input = {
+        "State_Name_encoded": encoders["State_Name"].transform([state])[0],
+        "District_Name_encoded": encoders["District_Name"].transform([district])[0],
+        "Crop_Year": year,
+        "Season_encoded": encoders["Season"].transform([season])[0],
+        "Crop_encoded": encoders["Crop"].transform([crop])[0],
+        "Area": area
+    }
+
+    X_new = pd.DataFrame([encoded_input])
+    X_new_scaled = scaler.transform(X_new)
+
+    prediction = model.predict(X_new_scaled)[0]
+    prediction = max(0, prediction)  # ensure no negative output
+    st.success(f"🌟 Predicted Production: **{prediction:,.2f}** units")
+
